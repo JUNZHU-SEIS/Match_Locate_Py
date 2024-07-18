@@ -7,6 +7,7 @@ from utils import create_velocity_model,read_growclust
 import numpy as np
 R = 6371
 deg2km = np.pi*R/180
+components = 'ENZ'
 tag = '20240718T011147'
 waveform_root = '../Data/waveform_sac_filtered'
 root = os.path.join('experiments',tag)
@@ -18,11 +19,11 @@ else:
 vmodel = create_velocity_model(config['fvelo'],'eg.tvel')
 tplt = read_growclust(config['ctlg_path'])
 
-def plot_one_event(time,lat,lon,depth,offset_min=None,offset_max=None,start=None,duration=None):
+def plot_one_event(time,lat,lon,depth,offset_min=None,offset_max=None,start=None,duration=None,comp='E'):
 	print('='*10+'\n',time,lat,lon,depth)
 	ot = UTCDateTime(time)
 	date = '%d%02d%02d'%(ot.year,ot.month,ot.day)
-	st = read(os.path.join(waveform_root,date,'*E'))
+	st = read(os.path.join(waveform_root,date,'*%s'%comp))
 	st = st.trim(ot,ot+100,pad=True,fill_value=0)
 	if offset_min==None:P,S,G = [],[],[]
 	for tr in st:
@@ -32,7 +33,7 @@ def plot_one_event(time,lat,lon,depth,offset_min=None,offset_max=None,start=None
 		if offset_min==None:
 			gcarc = loc2deg(lon,lat,tr.stats.sac.stla,tr.stats.sac.stlo)
 			G.append(gcarc)
-			focal = depth + tr.stats.sac.stel/1e3
+			focal = max(0,depth + tr.stats.sac.stel/1e3)
 			tp = vmodel.get_travel_times(focal,distance_in_degree=gcarc,phase_list=['p','P'])
 			ts = vmodel.get_travel_times(focal,distance_in_degree=gcarc,phase_list=['s','S'])
 			if len(tp):P.append(tp[0].time)
@@ -53,12 +54,13 @@ def plot_one_event(time,lat,lon,depth,offset_min=None,offset_max=None,start=None
 def plot_waveform():
 	df = pd.read_csv(os.path.join(root,'new.ctlg'),sep=' ')
 	for time,lat,lon,depth,i in zip(df['ot'],df['lat'],df['lon'],df['dep'],df['template_id']):
-		fig,offset_min,offset_max,start,duration = plot_one_event(time,lat,lon,depth) # need debug
-		fig.savefig(os.path.join(savedir,'%d_%s_candidate.pdf'%(i,time)))
-		plt.close()
-		evtp = tplt[tplt['evid']==i].iloc[0]
-		fig,_,_,_,_ = plot_one_event(evtp['time'],evtp['LON'],evtp['LAT'],evtp['DEPTH'],
-			offset_min=offset_min,offset_max=offset_max,start=start,duration=duration)
-		fig.savefig(os.path.join(savedir,'%d_%s_template.pdf'%(i,time)))
-		plt.close()
+		for comp in components:
+			fig,offset_min,offset_max,start,duration = plot_one_event(time,lat,lon,depth,comp=comp) # need debug
+			fig.savefig(os.path.join(savedir,'%d_%s_%s_candidate.pdf'%(i,time,comp)))
+			plt.close()
+			evtp = tplt[tplt['evid']==i].iloc[0]
+			fig,_,_,_,_ = plot_one_event(evtp['time'],evtp['LON'],evtp['LAT'],evtp['DEPTH'],
+				offset_min=offset_min,offset_max=offset_max,start=start,duration=duration,comp=comp)
+			fig.savefig(os.path.join(savedir,'%d_%s_%s_template.pdf'%(i,time,comp)))
+			plt.close()
 plot_waveform()
