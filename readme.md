@@ -1,7 +1,7 @@
-This is a PyTorch version GPU-Match&Locate, modified from [GPU-Match&Locate1.0](https://github.com/MinLiu19/GPU-MatchLocate1.0).\
-New features:
+This is a PyTorch version GPU-Match&Locate modified from [GPU-Match&Locate1.0](https://github.com/MinLiu19/GPU-MatchLocate1.0).\
+New features of this version:
 1. Automatically checking active stations for each candidate-template pair
-2. Continue your last experiment if your program is terminated by memory limit
+2. Continue your last experiment if your program is terminated by accidental memory limit
 
 To run this program, two kinds of data are required.
 1. Continuous waveform data preprocessed by [LOC-FLOW](https://github.com/Dal-mzhang/LOC-FLOW/blob/main/Data/waveform_download_mseed.py)
