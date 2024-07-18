@@ -1,4 +1,4 @@
-This is a PyTorch version GPU-Match&Locate, modified from (GPU-Match&Locate1.0)[https://github.com/MinLiu19/GPU-MatchLocate1.0].
+This is a PyTorch version GPU-Match&Locate, modified from [GPU-Match&Locate1.0](https://github.com/MinLiu19/GPU-MatchLocate1.0).
 
 To run this program, two kinds of data are required.
 1. Continuous waveform data preprocessed by [LOC-FLOW](https://github.com/Dal-mzhang/LOC-FLOW/blob/main/Data/waveform_download_mseed.py)
