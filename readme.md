@@ -1,5 +1,5 @@
 This is a PyTorch version GPU-Match&Locate modified from [GPU-Match&Locate1.0](https://github.com/MinLiu19/GPU-MatchLocate1.0).\
-New features of this version:
+Features of this version:
 1. Not only the detection results but also the configurations of your every experiment are logged
 2. Automatically checking operational stations for each candidate-template pair. This is useful for temporary seismic network in which some stations might be unused for a period.
 3. Allowing you to continue your last experiment terminated by accidental error (e.g., memory limit). You do NOT need to run the whole program from scratch.
