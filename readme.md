@@ -1,8 +1,9 @@
 This is a PyTorch version GPU-Match&Locate modified from [GPU-Match&Locate1.0](https://github.com/MinLiu19/GPU-MatchLocate1.0).\
 New features of this version:
-1. Logging the results and the configurations of your every experiment
-1. Checking active stations for each candidate-template pair
-2. Allowing to continue your last experiment if your program is terminated by accidental error (e.g., memory limit)
+1. Not only the detection results but also the configurations of your every experiment are logged
+2. Automatically checking operational stations for each candidate-template pair. This is useful for temporary seismic network in which some stations might be unused for a period.
+3. Allowing you to continue your last experiment terminated by accidental error (e.g., memory limit). You do NOT need to run the program again from scratch.
+0. Using 1-D convolutional layer rather than CUDA to calculate cross-correlation
 
 To run this program, two kinds of data are required.
 1. Continuous waveform data (we often call it as candidate) preprocessed by [LOC-FLOW](https://github.com/Dal-mzhang/LOC-FLOW/blob/main/Data/waveform_download_mseed.py)
