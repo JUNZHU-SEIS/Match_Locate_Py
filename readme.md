@@ -25,4 +25,4 @@ Prerequisite:
 * Obspy
 * h5py
 
-Any suggestions or issues are welcome. Please feel free to contact me via [email](mailto:jun__zhu@outlook.com) or GitHub issues.
+Any issues or suggestions are welcome. Please feel free to contact me via [email](mailto:jun__zhu@outlook.com) or [GitHub issues](https://github.com/JUNZHU-SEIS/Match_Locate_Py/issues).
