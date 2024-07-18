@@ -141,7 +141,7 @@ class TemplateMatching(torch.utils.data.Dataset):
 		print('candidate %d (%s); template %d:'%(ci,self.candidate_folders[ci],ti))
 		if ci==0 and ti<self.skip:return {'flag':0} # skip existing catalog
 		event = self.ctlg.iloc[ti]
-		event_ot = '%d%02d%02dT%02d:%02d:%06.3f'%(event['yr'],event['mon'],event['day'],event['hr'],event['min'],event['sec'])
+		ot = event['time']
 		tp = self.tplt[str(ti)]
 		stations,array,folder = self.filter_channels(tp,ci)
 		if len(stations['station'].unique())<self.number_stations_threshold:return {'flag':0}
@@ -158,7 +158,7 @@ class TemplateMatching(torch.utils.data.Dataset):
 			'snr':np.array(stations['snr']),'vslowness':np.array(stations['vslowness']),
 			'hslowness':np.array(stations['hslowness']),'template_idx':ti,'candidate_folder':folder,
 			'stla':np.array(stations['stla']),'stlo':np.array(stations['stlo']),'stel':np.array(stations['stel']),
-			't_grids':t_grids,'ot':event_ot,'evla':event['LAT'],'evlo':event['LON'],'evdp':event['DEPTH'],
+			't_grids':t_grids,'ot':ot,'evla':event['LAT'],'evlo':event['LON'],'evdp':event['DEPTH'],
 			'grids':np.array(self.grids),'dist':np.array(stations['dist']),'chan':chan,'reweight':reweight}
 
 class realtime_deduplicate_in_4D_grid():

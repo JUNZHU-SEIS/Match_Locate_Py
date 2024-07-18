@@ -116,6 +116,8 @@ def read_growclust(p,nrows=None):
 		'DEPTH','mag','qID','cID','nbranch',
 		'qnpair','qndiffP','qndiffS','rmsP','rmsS',
 		'eh','ez','et','latC','lonC','depC'])
+	df['time'] = [UTCDateTime('%d%02d%02dT%02d:%02d:%06.3f'%(yr,mon,day,hr,min,sec)) for yr,mon,day,hr,min,sec in zip(
+		df['yr'],df['mon'],df['day'],df['hr'],df['min'],df['sec'])]
 	return df if nrows==None else df.iloc[:nrows]
 
 def mark_templates(args,rows=None):
@@ -133,7 +135,7 @@ def mark_templates(args,rows=None):
 	f = h5py.File(tplt_path,mode='w');grp = f.create_group('waveform')
 	for i in range(len(df) if rows==None else rows):
 		etry = df.iloc[i]
-		t = UTCDateTime('%d%02d%02dT%02d:%02d:%06.3f'%(etry['yr'],etry['mon'],etry['day'],etry['hr'],etry['min'],etry['sec']))
+		t = etry['time']
 		lat,lon,dep = etry['LAT'],etry['LON'],etry['DEPTH']
 		print(t,lat,lon,dep,i)
 		date = '%04d%02d%02d'%(t.year,t.month,t.day)
