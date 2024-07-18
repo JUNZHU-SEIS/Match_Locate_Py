@@ -232,7 +232,7 @@ conf = read_args()
 args = initialize(config,conf)
 print(args)
 radius = args['radius']
-mark_templates(args)
+mark_templates(args) # if the template file (hdf5) alreay exists, comment this line to avoid marking templates agian.
 ds = TemplateMatching(args)
 pipe = torch.utils.data.DataLoader(ds,batch_size=1,num_workers=1,shuffle=False)
 for x in pipe:
