@@ -20,7 +20,7 @@ dict['detection_folder'] = 'catalog'
 dict['log'] = 'pdf'
 dict['minimum_cc'] = .3
 dict['number_high_cc_channels'] = 4
-dict['max_number_channels'] = 90
+dict['max_number_channels'] = 100
 dict['plot'] = 0
 dict['continue_previous_experiment'] = 0
 
