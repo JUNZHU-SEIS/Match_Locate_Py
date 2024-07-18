@@ -12,8 +12,16 @@ Because there are too many configurations, another way to set them is as follows
 ```
 python GPU_MATCH_LOCATE.py --cuda=1 --mad_threshold=10 --halfwin_for_local_mad=5 --local_mad_threshold=10 --snr_threshold=1 --minimum_cc=.3 --number_high_cc_channels=5 --number_stations_threshold=4 --plot=1 --too_close_detections_to_remain=6 --max_number_stations_threshold=80
 ```
+Once you run the command above, two folders will be created: `template` and `experiments`.
+1. The `template` folder saves the template waveform in the format of hdf5 and the images of the waveform in the path: `template/pdf/[evid].[network code].[station code].*.pdf`.
+2. The `experiments` folder logs the results and the configurations of every experiment. Its subfolders ared named in the format of `YYYYMMDDTHHMMSS` as a tag of your experiment. In each subfolder, two sub-subfolders exist: `catalog` and `pdf` save the detections and images, respectively.
+
+If this is not your first time to run the code, I suggest you cancel the process of marking templates by commenting the 235th line in [`GPU_MATCH_LOCATE.py`](./GPU_MATCH_LOCATE.py).
+
 Prerequisite:
-- Nvidia-GPU
-- PyTorch
-- Obspy
-- h5py
+* Nvidia-GPU
+* PyTorch
+* Obspy
+* h5py
+
+Any suggestions on the code are welcome. Please feel free to contact me via [email](mailto:jun__zhu@outlook.com) or GitHub issues.
