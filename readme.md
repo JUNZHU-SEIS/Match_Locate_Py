@@ -17,7 +17,7 @@ Once you run the command above, two folders will be created: `template` and `exp
 1. The `template` folder saves the template waveform in the format of hdf5 and the images of the waveform when `--plot=1`
 2. The `experiments` folder logs the results and the configurations of every experiment. Its subfolders ared named in the format of `YYYYMMDDTHHMMSS` (i.e., the local time when you run the command). In each subfolder, two sub-subfolders exist: `catalog` and `pdf` save the detections and images, respectively
 
-If this is not your first time to run the code, I suggest you cancel the process of marking templates by commenting the 236th line in [`GPU_MATCH_LOCATE.py`](./GPU_MATCH_LOCATE.py).
+If this is not your first time to run the code, you can avoid repeatedly marking templates by commenting the 236th line in [`GPU_MATCH_LOCATE.py`](./GPU_MATCH_LOCATE.py).
 
 Prerequisite:
 * Nvidia-GPU
