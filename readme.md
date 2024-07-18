@@ -14,7 +14,7 @@ To run this program, two kinds of data are required.
 python GPU_MATCH_LOCATE.py --cuda=1 --mad_threshold=10 --halfwin_for_local_mad=5 --local_mad_threshold=10 --snr_threshold=1 --minimum_cc=.3 --number_high_cc_channels=5 --number_stations_threshold=4 --plot=1 --too_close_detections_to_remain=6 --max_number_stations_threshold=80
 ```
 Once you run the command above, two folders will be created: `template` and `experiments`.
-1. The `template` folder saves the template waveform in the format of hdf5 and the images of the waveform if `--plot=1`
+1. The `template` folder saves the template waveform in the format of hdf5 and the images of the waveform when `--plot=1`
 2. The `experiments` folder logs the results and the configurations of every experiment. Its subfolders ared named in the format of `YYYYMMDDTHHMMSS` (i.e., the local time when you run the command). In each subfolder, two sub-subfolders exist: `catalog` and `pdf` save the detections and images, respectively
 
 If this is not your first time to run the code, I suggest you cancel the process of marking templates by commenting the 236th line in [`GPU_MATCH_LOCATE.py`](./GPU_MATCH_LOCATE.py).
