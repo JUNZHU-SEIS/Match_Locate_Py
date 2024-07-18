@@ -158,7 +158,7 @@ class TemplateMatching(torch.utils.data.Dataset):
 			'snr':np.array(stations['snr']),'vslowness':np.array(stations['vslowness']),
 			'hslowness':np.array(stations['hslowness']),'template_idx':ti,'candidate_folder':folder,
 			'stla':np.array(stations['stla']),'stlo':np.array(stations['stlo']),'stel':np.array(stations['stel']),
-			't_grids':t_grids,'ot':event_ot,'evla':event['LON'],'evlo':event['LAT'],'evdp':event['DEPTH'],
+			't_grids':t_grids,'ot':event_ot,'evla':event['LAT'],'evlo':event['LON'],'evdp':event['DEPTH'],
 			'grids':np.array(self.grids),'dist':np.array(stations['dist']),'chan':chan,'reweight':reweight}
 
 class realtime_deduplicate_in_4D_grid():
