@@ -1,0 +1,36 @@
+continue_previous_experiment: 0
+ctlg_nrows: null
+ctlg_path: ../GrowClust/OUT.0/out.growclust_cat
+detection_folder: catalog
+eps: 1.0e-15
+fvelo: ../pyocto/velocitymodel.txt
+halfwin_for_local_mad: 5
+local_mad_threshold: 9
+log: pdf
+mad_threshold: 9
+max_number_channels: 100
+minimum_cc: 0.3
+number_high_cc_channels: 4
+number_stations_threshold: 4
+plot: 0
+radius:
+  duplicate_nx: 2
+  duplicate_ny: 2
+  duplicate_nz: 2
+  dx: 0.01
+  dy: 0.01
+  dz: 1
+  nx: 1
+  ny: 1
+  nz: 1
+root: ../Data/waveform_sac_filtered
+sampling_rate: 100
+snr_threshold: 1
+too_close_detections_to_remain: 6
+tplt_folder: template
+tplt_log: pdf
+tplt_path: tplt.hdf5
+win0: 1
+win0_save_tplt: 20
+win1: 3
+win1_save_tplt: 80
