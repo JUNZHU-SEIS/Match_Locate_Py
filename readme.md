@@ -6,7 +6,7 @@ Features of this version:
 0. Using 1-D convolutional layer rather than CUDA-kernel to calculate cross-correlation
 
 To run this program, two kinds of data are required.
-1. Continuous waveform data (we often call it as `candidate`) preprocessed by [LOC-FLOW](https://github.com/Dal-mzhang/LOC-FLOW/blob/main/Data/waveform_download_mseed.py)
+1. Continuous waveform (we often call it as `candidate`) preprocessed by [LOC-FLOW](https://github.com/Dal-mzhang/LOC-FLOW/blob/main/Data/waveform_download_mseed.py)
 2. Catlog of relocated earthquakes by [GrowClust](https://github.com/dttrugman/GrowClust/blob/master/EXAMPLE/OUT/out.growclust_cat)
 
 Some [`default configugrations`](./config.yml) of this program are set by [`create_config.py`](./create_config.py). Becauset of too many configurations, an easier way to set/change configurations is as follows:
