@@ -141,7 +141,7 @@ class TemplateMatching(torch.utils.data.Dataset):
 		print('candidate %d (%s); template %d:'%(ci,self.candidate_folders[ci],ti))
 		if ci==0 and ti<self.skip:return {'flag':0} # skip existing catalog
 		event = self.ctlg.iloc[ti]
-		ot = event['time']
+		ot = '%d%02d%02dT%02d:%02d:%06.3f'%(event['yr'],event['mon'],event['day'],event['hr'],event['min'],event['sec'])
 		tp = self.tplt[str(ti)]
 		stations,array,folder = self.filter_channels(tp,ci)
 		if len(stations['station'].unique())<self.number_stations_threshold:return {'flag':0}
