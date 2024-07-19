@@ -4,15 +4,6 @@ from obspy import UTCDateTime
 from utils import read_growclust
 from obspy.geodetics.base import locations2degrees as loc2deg
 import numpy as np
-R = 6371
-deg2km = np.pi*R/180
-DAYLENGTH = 24*3600
-ctlg_path = '../GrowClust/OUT/out.growclust_cat'
-root_dir = 'experiments/20240718T011147'
-with open(os.path.join(root_dir,'config.yml'),'r') as f:config=yaml.load(f,Loader=yaml.Loader)
-catalog_dir = os.path.join(root_dir,'catalog')
-fdays = sorted(glob.glob(os.path.join(catalog_dir,'*')))
-hdf = h5py.File(config['tplt_path'],'r')['waveform']
 
 def read_template_arrival(i):
 	tplt = hdf[str(i)]
@@ -118,21 +109,35 @@ def write_ctlg(d,p,i):
 		f.write(line+'\n')
 	f.close()
 
-ctlg = read_growclust(ctlg_path,nrows=config['ctlg_nrows'])
-ctlg['time'] = [UTCDateTime('%d%02d%02dT%02d:%02d:%06.3f'%(yr,mon,day,hr,min,sec)) for yr,mon,day,hr,min,sec in zip(ctlg['yr'],ctlg['mon'],ctlg['day'],ctlg['hr'],ctlg['min'],ctlg['sec'])]
-ctlg['relative_t'] = [hr*3600+min*60+sec for hr,min,sec in zip(ctlg['hr'],ctlg['min'],ctlg['sec'])]
-priority = ['relative_t','Times_of_MAD']
-count = 0
-for i,fday in enumerate(fdays):
-	print('Deduplicating existing templates:',fday)
-	date = os.path.basename(fday)
-	reference = UTCDateTime(date)
-	df = pd.read_csv(os.path.join(fday,'unique.txt'),sep=' ')
-	remove_idx = remove_existing_templates(reference,df,ctlg)
-	exist = df.iloc[remove_idx].sort_values(priority)
-	new = df.loc[~df.index.isin(remove_idx)].sort_values(priority)
-	exist.to_csv(os.path.join(fday,'exist.txt'),index=False,sep=' ')
-	new.to_csv(os.path.join(fday,'new.txt'),index=False,sep=' ')
-	count += len(new)
-	write_ctlg(new,os.path.join(root_dir,'new.ctlg'),i)
-print(count,'new events after deduplicate')
+if __name__ == "__main__":
+	R = 6371
+	deg2km = np.pi*R/180
+	DAYLENGTH = 24*3600
+	root = 'experiments'
+	tags = sorted(glob.glob(os.path.join(root,'*')))
+	message = 'Please select which folder you want to deduplicate:\n%s\n'%(
+	'\n'.join(['%d: %s'%(i,tag) for i,tag in enumerate(tags)]))
+	idx = int(input(message))
+	root_dir = tags[idx]
+	with open(os.path.join(root_dir,'config.yml'),'r') as f:config=yaml.load(f,Loader=yaml.Loader)
+	catalog_dir = os.path.join(root_dir,'catalog')
+	fdays = sorted(glob.glob(os.path.join(catalog_dir,'*')))
+	hdf = h5py.File(config['tplt_path'],'r')['waveform']
+	ctlg = read_growclust(config['ctlg_path'],nrows=config['ctlg_nrows'])
+	ctlg['time'] = [UTCDateTime('%d%02d%02dT%02d:%02d:%06.3f'%(yr,mon,day,hr,min,sec)) for yr,mon,day,hr,min,sec in zip(ctlg['yr'],ctlg['mon'],ctlg['day'],ctlg['hr'],ctlg['min'],ctlg['sec'])]
+	ctlg['relative_t'] = [hr*3600+min*60+sec for hr,min,sec in zip(ctlg['hr'],ctlg['min'],ctlg['sec'])]
+	priority = ['relative_t','Times_of_MAD']
+	count = 0
+	for i,fday in enumerate(fdays):
+		print('Deduplicating existing templates:',fday)
+		date = os.path.basename(fday)
+		reference = UTCDateTime(date)
+		df = pd.read_csv(os.path.join(fday,'unique.txt'),sep=' ')
+		remove_idx = remove_existing_templates(reference,df,ctlg)
+		exist = df.iloc[remove_idx].sort_values(priority)
+		new = df.loc[~df.index.isin(remove_idx)].sort_values(priority)
+		exist.to_csv(os.path.join(fday,'exist.txt'),index=False,sep=' ')
+		new.to_csv(os.path.join(fday,'new.txt'),index=False,sep=' ')
+		count += len(new)
+		write_ctlg(new,os.path.join(root_dir,'new.ctlg'),i)
+	print(count,'new events after deduplicate')

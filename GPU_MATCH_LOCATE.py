@@ -50,6 +50,7 @@ class TemplateMatching(torch.utils.data.Dataset):
 		radius = args['radius']
 		self.grids = self.generate_grid(radius['nx'],radius['ny'],radius['nz'],radius['dx'],radius['dy'],radius['dz'])
 		self.max_number_channels = args['max_number_channels']
+		self.max_number_chan_in_one_station = args['max_number_chan_in_one_station']
 	def __len__(self):
 		return len(self.tplt)*len(self.candidate_folders)
 	def generate_grid(self,nx,ny,nz,dx,dy,dz):
@@ -81,7 +82,7 @@ class TemplateMatching(torch.utils.data.Dataset):
 				b = int(((ts+reference)-self.win0)*self.sampling_rate)
 				e = b+self.duration
 				if e<data[0].shape[1]:
-					for ichan in np.argsort(-snr_s)[:2]:
+					for ichan in np.argsort(-snr_s)[:self.max_number_chan_in_one_station]:
 						STATION.append(k)
 						CHAN.append(data.attrs['channels'][ichan])
 						T.append(ts)
@@ -99,7 +100,7 @@ class TemplateMatching(torch.utils.data.Dataset):
 				b = int(((tp+reference)-self.win0)*self.sampling_rate)
 				e = b+self.duration
 				if e<data[0].shape[1]:
-					for ichan in np.argsort(-snr_p)[:2]:
+					for ichan in np.argsort(-snr_p)[:self.max_number_chan_in_one_station]:
 						STATION.append(k)
 						CHAN.append(data.attrs['channels'][ichan])
 						T.append(tp)

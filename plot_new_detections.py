@@ -2,17 +2,20 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from obspy import UTCDateTime,read
 from obspy.geodetics.base import locations2degrees as loc2deg
-import os,yaml
+import os,glob,yaml
 from utils import create_velocity_model,read_growclust
 import numpy as np
 R = 6371
 deg2km = np.pi*R/180
 components = 'ENZ'
-tag = '20240718T011147'
-waveform_root = '../Data/waveform_sac_filtered'
-root = os.path.join('experiments',tag)
-with open(os.path.join(root,'config.yml'),'r') as f:config=yaml.load(f,Loader=yaml.Loader)
-savedir = os.path.join(os.path.join(root,'post_pdf'))
+root = 'experiments'
+tags = sorted(glob.glob(os.path.join(root,'*')))
+message = 'Please select which folder you want to deduplicate:\n%s\n'%(
+'\n'.join(['%d: %s'%(i,tag) for i,tag in enumerate(tags)]))
+idx = int(input(message))
+root_dir = tags[idx]
+with open(os.path.join(root_dir,'config.yml'),'r') as f:config=yaml.load(f,Loader=yaml.Loader)
+savedir = os.path.join(os.path.join(root_dir,'post_pdf'))
 if not os.path.exists(savedir):os.makedirs(savedir)
 else:
 	for x in os.listdir(savedir):os.unlink(os.path.join(savedir,x))
@@ -23,7 +26,7 @@ def plot_one_event(time,lat,lon,depth,offset_min=None,offset_max=None,start=None
 	print('='*10+'\n',time,lat,lon,depth)
 	ot = UTCDateTime(time)
 	date = '%d%02d%02d'%(ot.year,ot.month,ot.day)
-	st = read(os.path.join(waveform_root,date,'*%s'%comp))
+	st = read(os.path.join(config['root'],date,'*%s'%comp))
 	st = st.trim(ot,ot+100,pad=True,fill_value=0)
 	if offset_min==None:P,S,G = [],[],[]
 	for tr in st:
@@ -52,10 +55,10 @@ def plot_one_event(time,lat,lon,depth,offset_min=None,offset_max=None,start=None
 	return fig,offset_min,offset_max,start,duration
 
 def plot_waveform():
-	df = pd.read_csv(os.path.join(root,'new.ctlg'),sep=' ')
+	df = pd.read_csv(os.path.join(root_dir,'new.ctlg'),sep=' ')
 	for time,lat,lon,depth,i in zip(df['ot'],df['lat'],df['lon'],df['dep'],df['template_id']):
 		for comp in components:
-			fig,offset_min,offset_max,start,duration = plot_one_event(time,lat,lon,depth,comp=comp) # need debug
+			fig,offset_min,offset_max,start,duration = plot_one_event(time,lon,lat,depth,comp=comp)
 			fig.savefig(os.path.join(savedir,'%d_%s_%s_candidate.pdf'%(i,time,comp)))
 			plt.close()
 			evtp = tplt[tplt['evid']==i].iloc[0]

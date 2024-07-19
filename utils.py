@@ -207,6 +207,7 @@ def read_args():
 	parser.add_argument("--plot", default=None, type=int, help="Whether plot the detection")
 	parser.add_argument("--continue_previous_experiment", default=None, type=int, help="Whether continue previous experiment")
 	parser.add_argument("--ctlg_nrows", default=None, type=int, help="For mini test, use a small number of templates to debug")
+	parser.add_argument("--max_number_chan_in_one_station", default=None, type=int, help="For one station, how many channels you want to use")
 	args = parser.parse_args()
 	return args
 
@@ -266,6 +267,7 @@ def initialize(config,conf):
 	if args['plot'] and (not os.path.exists(args['tplt_log'])):os.makedirs(args['tplt_log'])
 	args['detection_folder'] = os.path.join(experiment,config['detection_folder'])
 	args['log'] = os.path.join(experiment,config['log'])
+	args['max_number_chan_in_one_station'] = conf.max_number_chan_in_one_station if conf.max_number_chan_in_one_station else config['max_number_chan_in_one_station']
 	radius = config['radius']
 	if conf.nx:radius['nx'] = conf.nx
 	if conf.ny:radius['ny'] = conf.ny
@@ -333,9 +335,10 @@ def detect_events_on_all_nodes(CC,STACK,MAD,N,MASK_ZERO,MASK,LEFTS,SHIFTS,templa
 			loc = {'evlo':evloc['evlo']+grid[0],'evla':evloc['evla']+grid[1],'evdp':evloc['evdp']+grid[2]}
 			info = {'ot':detect_ot,'evid':evloc['evid'],'evlo':loc['evlo'],'evla':loc['evla'],'evdp':loc['evdp'],'mad':mad[idx],'cc':stack[idx],'n_high_cc_channels':n_high_cc_channels[idx],'local_mad':local_mad}
 			flag = ded.run(grid[0],grid[1],grid[2],idx-left+int(win0*sampling_rate),peak_mad,info)
-			if args['plot'] and flag:
+			if flag:
 				print(grid,info)
-				plot_detection_overlaped(idx,left,win0,sampling_rate,SHIFT,win1,template,continuous,win,MASK_ZERO,channels,CC,stack,info,peak_mad,local_mad,evloc,fdate)
+				if args['plot']:plot_detection_overlaped(idx,left,win0,sampling_rate,SHIFT,win1,
+					template,continuous,win,MASK_ZERO,channels,CC,stack,info,peak_mad,local_mad,evloc,fdate)
 
 def torch_normalize_by_std(x):
 	x = x-torch.mean(x,axis=1,keepdims=True)
