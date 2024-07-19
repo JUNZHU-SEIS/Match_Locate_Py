@@ -341,9 +341,14 @@ def plot_detection_overlaped(idx,left,win0,sampling_rate,SHIFT,win1,template,con
 	nC,nT = torch_normalize_by_max(continuous),torch_normalize_by_max(template)
 	for k,i in enumerate(I):plt.plot(np.arange(E-B)/sampling_rate+b,nC[i].cpu()+k*2,color='gray',lw=1)
 	for k,i in enumerate(I):plt.plot((np.arange(win)+int(SHIFT[i])+offset)/sampling_rate-win0,nT[i].cpu()+k*2,color='k',lw=.5)
-	for k,i in enumerate(I):plt.text(max(min(int(SHIFT[i])/sampling_rate+win1,e),b),k*2,'%.2f'%CC[i,idx-left+SHIFT[i]],color=('r' if MASK_ZERO[i,idx-left+SHIFT[i]]==False else 'b'))
-	if nchan<=36:
-		for k,i in enumerate(I):plt.text(b,k*2,channels[i][0],color='k',ha='right')
+	for k,i in enumerate(I):
+		phase_time = int(SHIFT[i])/sampling_rate
+		text_x = max(min(phase_time+win1,e),b) if k%2 else min(max(phase_time-win0,b),e)
+		plt.text(text_x,k*2,'%.2f'%CC[i,idx-left+SHIFT[i]],
+			color=('r' if MASK_ZERO[i,idx-left+SHIFT[i]]==False else 'b'),
+			ha=('left' if k%2 else 'right'))
+#	if nchan<=36:
+#		for k,i in enumerate(I):plt.text(b,k*2,channels[i][0],color='k',ha='right')
 	cc = stack[idx-half:idx+half]
 	cc_range = torch.max(cc)-torch.min(cc)
 	cc_modified = (cc-torch.min(cc))/cc_range*scale
@@ -549,13 +554,13 @@ def write_catalog(IT,time_idx,grid_idx,local_MADs,folder,lefts,evloc,grids,MADs,
 		n_high_CC_channels = N[gi,ti]
 		line = '%s %d %f %f %f %f %f %f %.2f\n'%(detect_ot,evloc['evid'],evlo,evla,evdp,mad,local_MAD,stack_CC,n_high_CC_channels)
 		f.write(line)
+		print(line+'='*10)
 		if args['plot']:
 			fdate_log = os.path.join(args['log'],date)
 			if not os.path.exists(fdate_log):os.makedirs(fdate_log)
 			plot_detection_overlaped(ti,lefts[gi],args['win0'],args['sampling_rate'],shifts[gi],
 				args['win1'],template,continuous,MASK_ZERO,channels,CC,stack[gi],
 				detect_ot,mad,local_MAD,evloc,dists,fdate_log,scale=6)
-			print(line)
 	f.close()
 
 #def detect_events_on_all_nodes(CC,STACK,MAD,N,MASK_ZERO,MASK,LEFTS,SHIFTS,template,continuous,channels,ded,grids,folder,evloc,args):
