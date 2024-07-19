@@ -1,6 +1,8 @@
-from utils import (mark_templates,read_growclust,initialize,read_args,
-	generate_catalog,stack_all_nodes_of_CC_and_calculate_MAD,
-	detect_events_on_all_nodes,reweight_by_common_station)
+from utils import (
+	mark_templates,read_growclust,initialize,read_args,
+	stack_all_nodes_of_CC_and_calculate_MAD,
+	detect_peaks_on_all_nodes,reweight_by_common_station,
+	deduplicate_in_space,deduplicate_in_time,write_catalog)
 import pandas as pd
 import os,torch,h5py,glob,yaml
 torch.cuda.empty_cache()
@@ -162,79 +164,13 @@ class TemplateMatching(torch.utils.data.Dataset):
 			't_grids':t_grids,'ot':ot,'evla':event['LAT'],'evlo':event['LON'],'evdp':event['DEPTH'],
 			'grids':np.array(self.grids),'dist':np.array(stations['dist']),'chan':chan,'reweight':reweight}
 
-class realtime_deduplicate_in_4D_grid():
-	def __init__(self,nx,ny,nz,dx,dy,dz,nt):
-		self.ctlg = {}
-		self.dx = dx
-		self.dy = dy
-		self.dz = dz
-		self.xrange = np.arange(-nx,nx+1)
-		self.yrange = np.arange(-ny,ny+1)
-		self.zrange = np.arange(-nz,nz+1)
-		self.trange = np.arange(-nt,nt+1)
-	def add_event2ctlg(self,i,j,k,l,mad,info):
-		if i in self.ctlg:
-			if j in self.ctlg[i]:
-				if k in self.ctlg[i][j]:
-					self.ctlg[i][j][k][l] = {'mad':mad,'info':info}
-				else:
-					self.ctlg[i][j][k] = {}
-					self.ctlg[i][j][k][l] = {'mad':mad,'info':info}
-			else:
-				self.ctlg[i][j] = {}
-				self.ctlg[i][j][k] = {}
-				self.ctlg[i][j][k][l] = {'mad':mad,'info':info}
-		else:
-			self.ctlg[i] = {}
-			self.ctlg[i][j] = {}
-			self.ctlg[i][j][k] = {}
-			self.ctlg[i][j][k][l] = {'mad':mad,'info':info}
-	def delete_event_from_ctlg(self,X,Y,Z,T):
-		for x,y,z,t in zip(X,Y,Z,T):del self.ctlg[x][y][z][t]
-	def search_neighbor_and_return_the_maximal_mad(self,i,j,k,l):
-		mad,X,Y,Z,T = [],[],[],[],[]
-		xrange = self.xrange+i
-		yrange = self.yrange+j
-		zrange = self.zrange+k
-		trange = self.trange+l
-		for x in xrange:
-			if x not in self.ctlg:continue
-			for y in yrange:
-				if y not in self.ctlg[x]:continue
-				for z in zrange:
-					if z not in self.ctlg[x][y]:continue
-					for t in trange:
-						if t not in self.ctlg[x][y][z]:continue
-						ev = self.ctlg[x][y][z][t]
-						if 'mad' in ev:
-							mad.append(ev['mad'])
-							X.append(x)
-							Y.append(y)
-							Z.append(z)
-							T.append(t)
-		return mad,X,Y,Z,T
-	def run(self,i,j,k,l,mad,info):
-		i,j,k,l = int(i.item()/self.dx),int(j.item()/self.dy),int(k.item()/self.dz),l.item()
-		flag = 1
-		if len(self.ctlg)==0:
-			self.add_event2ctlg(i,j,k,l,mad,info)
-		else:
-			mads,X,Y,Z,T = self.search_neighbor_and_return_the_maximal_mad(i,j,k,l)
-			if len(mads)==0:
-				self.add_event2ctlg(i,j,k,l,mad,info)
-			elif max(mads)<=mad:
-				self.delete_event_from_ctlg(X,Y,Z,T)
-				self.add_event2ctlg(i,j,k,l,mad,info)
-			else:
-				flag = 0
-		return flag
-
 conf = read_args()
 args = initialize(config,conf)
 print(args)
 radius = args['radius']
+distance = int(args['too_close_detections_to_remain']*args['sampling_rate'])
 # if the template file (hdf5) alreay exists, comment this line to avoid marking templates agian.
-mark_templates(args)
+#mark_templates(args)
 ds = TemplateMatching(args)
 pipe = torch.utils.data.DataLoader(ds,batch_size=1,num_workers=1,shuffle=False)
 for x in pipe:
@@ -245,9 +181,10 @@ for x in pipe:
 	channels = x['chan']
 	evloc = {'evla':evla,'evlo':evlo,'evdp':evdp,'evid':evid,'ot':ot}
 	CC,mask_zero_frac = cc(continuous,template,args['eps'],args['device'])
-	print('CC shape:',CC.shape)
+#	print('CC shape:',CC.shape)
 	weight = ((snr/torch.sum(snr))+1/(dists*torch.sum(1/dists)))/2
-	ded = realtime_deduplicate_in_4D_grid(radius['duplicate_nx'],radius['duplicate_ny'],radius['duplicate_nz'],radius['dx'],radius['dy'],radius['dz'],int(args['too_close_detections_to_remain']*args['sampling_rate']))
 	STACK,MAD,N,MASK,LEFTS = stack_all_nodes_of_CC_and_calculate_MAD(CC,mask_zero_frac,shifts,weight,reweight,args['minimum_cc'])
-	detect_events_on_all_nodes(CC,STACK,MAD,N,mask_zero_frac,MASK,LEFTS,shifts,template,continuous,channels,ded,grids,folder,evloc,args)
-	generate_catalog(ded.ctlg,folder,args['detection_folder'])
+	time_idx,grid_idx,local_MADs = detect_peaks_on_all_nodes(STACK,MAD,N,MASK,args)
+	time_idx,grid_idx,local_MADs,max_stack_over_all_nodes = deduplicate_in_space(time_idx,grid_idx,STACK,local_MADs)
+	D = deduplicate_in_time(time_idx,max_stack_over_all_nodes,distance)
+	if len(D)>0:write_catalog(D,time_idx,grid_idx,local_MADs,folder,LEFTS,evloc,grids,MAD,STACK,N,shifts,template,continuous,mask_zero_frac,channels,CC,dists,args)

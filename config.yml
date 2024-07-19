@@ -8,10 +8,11 @@ halfwin_for_local_mad: 5
 local_mad_threshold: 9
 log: pdf
 mad_threshold: 9
+max_number_chan_in_one_station: 1
 max_number_channels: 100
 minimum_cc: 0.3
-number_high_cc_channels: 4
-number_stations_threshold: 4
+number_high_cc_channels: 5
+number_stations_threshold: 5
 plot: 0
 radius:
   duplicate_nx: 2

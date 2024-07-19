@@ -95,15 +95,12 @@ class Deduplicate():
 			'\n'.join(['%d: %s'%(i,tag) for i,tag in enumerate(tags)]))
 		idx = int(input(message))
 		root_dir = tags[idx]
-		catalog_dir = os.path.join(root_dir,'catalog')
 		with open(os.path.join(root_dir,'config.yml'),'r') as f:config=yaml.load(f,Loader=yaml.Loader)
 		self.root_dir = root_dir
-		self.fdays = glob.glob(os.path.join(catalog_dir,'*'))
 		self.hdf = h5py.File(config['tplt_path'],'r')['waveform']
 		ctlg = read_growclust(config['ctlg_path'],nrows=config['ctlg_nrows'])
 		ctlg['relative_t'] = [hr*3600+min*60+sec for hr,min,sec in zip(ctlg['hr'],ctlg['min'],ctlg['sec'])]
 		self.ctlg = ctlg
-		self.priority = ['relative_t','Times_of_MAD']
 		count = self.run()
 		print(count,'detections after deduplicate.')
 		if plot:
@@ -159,27 +156,29 @@ class Deduplicate():
 					offset_min=offset_min,offset_max=offset_max,start=start,duration=duration,comp=comp)
 				fig.savefig(os.path.join(self.savedir,'%d_%s_%s_template.pdf'%(i,time,comp)))
 				plt.close()
-	def run(self):
+	def run(self,priority=['relative_t','Times_of_MAD']):
 		count = 0
-		for i,fday in enumerate(self.fdays):
+		catalog_dir = os.path.join(self.root_dir,'catalog')
+		fdays = sorted(glob.glob(os.path.join(catalog_dir,'*')))
+		for i,fday in enumerate(fdays):
 			print('Deduplicating:',fday)
 			date = os.path.basename(fday)
 			reference = UTCDateTime(date)
 			# remove duplicate detection
 			df = pd.read_csv(os.path.join(fday,'raw_ctlg.txt'),sep=' ')
 			df['relative_t'] = [UTCDateTime(x)-reference for x in df['ot']]
-			df.sort_values(self.priority,inplace=True)
+			df.sort_values(priority,inplace=True)
 			df = df.reset_index(drop=True)
 			remove_idx = remove_based_on_phase_pick(df,'Times_of_MAD',self.hdf)
-			duplicate = df.iloc[remove_idx].sort_values(self.priority)
-			unique = df.loc[~df.index.isin(remove_idx)].sort_values(self.priority)
+			duplicate = df.iloc[remove_idx].sort_values(priority)
+			unique = df.loc[~df.index.isin(remove_idx)].sort_values(priority)
 			duplicate.to_csv(os.path.join(fday,'duplicate.txt'),index=False,sep=' ')
 			unique.to_csv(os.path.join(fday,'unique.txt'),index=False,sep=' ')
 			# remove existing self/cross detection
 			df = pd.read_csv(os.path.join(fday,'unique.txt'),sep=' ')
 			remove_idx = remove_existing_templates(reference,df,self.ctlg,self.hdf)
-			exist = df.iloc[remove_idx].sort_values(self.priority)
-			new = df.loc[~df.index.isin(remove_idx)].sort_values(self.priority)
+			exist = df.iloc[remove_idx].sort_values(priority)
+			new = df.loc[~df.index.isin(remove_idx)].sort_values(priority)
 			exist.to_csv(os.path.join(fday,'exist.txt'),index=False,sep=' ')
 			new.to_csv(os.path.join(fday,'new.txt'),index=False,sep=' ')
 			count += len(new)

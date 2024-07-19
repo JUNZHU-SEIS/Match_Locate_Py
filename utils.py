@@ -7,7 +7,6 @@ from obspy import read,UTCDateTime
 from obspy.taup import TauPyModel
 from obspy.taup.taup_create import build_taup_model
 import numpy as np
-#from obspy.signal.trigger import trigger_onset
 from obspy.geodetics.base import locations2degrees as loc2deg
 from math import log10
 from scipy.signal import detrend,find_peaks
@@ -302,7 +301,7 @@ def generate_catalog(ctlg,folder,out_folder):
 					for _,kl in kk.items():
 						if 'mad' in kl:
 							kl = kl['info']
-							line = '%s %d %f %f %f %f %f %f %d\n'%(str(kl['ot']),kl['evid'],kl['evlo'],kl['evla'],kl['evdp'],kl['mad'],kl['local_mad'],kl['cc'],kl['n_high_cc_channels'])
+							line = '%s %d %f %f %f %f %f %f %.2f\n'%(str(kl['ot']),kl['evid'],kl['evlo'],kl['evla'],kl['evdp'],kl['mad'],kl['local_mad'],kl['cc'],kl['n_high_cc_channels'])
 							f.write(line)
 
 def calc_MAD_times(x):
@@ -310,35 +309,6 @@ def calc_MAD_times(x):
 	mad = torch.median(torch.abs(x-median))
 	times_mad = (x-median)/mad
 	return times_mad
-
-def detect_events_on_all_nodes(CC,STACK,MAD,N,MASK_ZERO,MASK,LEFTS,SHIFTS,template,continuous,channels,ded,grids,folder,evloc,args):
-	mad_threshold,sampling_rate,win0,win1 = args['mad_threshold'],args['sampling_rate'],args['win0'],args['win1']
-	win = int((win0+win1)*sampling_rate)
-	date = os.path.basename(folder)
-	fdate = os.path.join(args['log'],date)
-	if not os.path.exists(fdate):os.makedirs(fdate)
-	candidate_t = UTCDateTime(date)
-	peak_distance = int(args['too_close_detections_to_remain']*args['sampling_rate'])
-	for stack,mad,n_high_cc_channels,left,grid,mask,SHIFT in zip(STACK,MAD,N,LEFTS,grids,MASK,SHIFTS):
-#		print(stack.max(),grid,mad.max())
-#		triggers = trigger_onset(mad.cpu(),mad_threshold,mad_threshold/2)
-#		for s0,s1 in triggers:
-#			idx = s0 + torch.argmax(mad[s0:s1+1])
-		peaks,_ = find_peaks(mad.cpu(),height=mad_threshold,distance=peak_distance)
-		for idx in peaks:
-			if n_high_cc_channels[idx]<args['number_high_cc_channels'] or mask[idx]==0:continue
-			local_mad = calc_local_mad(stack,idx,int(args['halfwin_for_local_mad']*args['sampling_rate']))
-#			print(stack.max(),local_mad)
-			if local_mad<args['local_mad_threshold']:continue
-			peak_mad = mad[idx].cpu()
-			detect_ot = candidate_t+float(idx-left)/sampling_rate+win0
-			loc = {'evlo':evloc['evlo']+grid[0],'evla':evloc['evla']+grid[1],'evdp':evloc['evdp']+grid[2]}
-			info = {'ot':detect_ot,'evid':evloc['evid'],'evlo':loc['evlo'],'evla':loc['evla'],'evdp':loc['evdp'],'mad':mad[idx],'cc':stack[idx],'n_high_cc_channels':n_high_cc_channels[idx],'local_mad':local_mad}
-			flag = ded.run(grid[0],grid[1],grid[2],idx-left+int(win0*sampling_rate),peak_mad,info)
-			if flag:
-				print(grid,info)
-				if args['plot']:plot_detection_overlaped(idx,left,win0,sampling_rate,SHIFT,win1,
-					template,continuous,win,MASK_ZERO,channels,CC,stack,info,peak_mad,local_mad,evloc,fdate)
 
 def torch_normalize_by_std(x):
 	x = x-torch.mean(x,axis=1,keepdims=True)
@@ -356,9 +326,12 @@ def torch_normalize_continuous_and_template(c,t):
 	c = (c-t_mean)/t_max
 	return c,t
 
-def plot_detection_overlaped(idx,left,win0,sampling_rate,SHIFT,win1,template,continuous,win,MASK_ZERO,channels,CC,stack,info,peak_mad,local_mad,evloc,fdate,scale=6):
+def plot_detection_overlaped(idx,left,win0,sampling_rate,SHIFT,win1,template,continuous,MASK_ZERO,channels,CC,stack,ot,peak_mad,local_mad,evloc,dists,fdate,scale=6):
+	win = int((win0+win1)*sampling_rate)
 	start_continuous = int(idx-left+win0*sampling_rate)
+	nchan = len(SHIFT)
 	shifts = torch.sort(SHIFT)
+	I = torch.argsort(dists).cpu()
 	b,e = shifts.values[0]/sampling_rate-win0,shifts.values[-1]/sampling_rate+win1
 	b,e = b.cpu().numpy(),e.cpu().numpy()
 	B,E = int(b*sampling_rate),int(e*sampling_rate)
@@ -366,29 +339,26 @@ def plot_detection_overlaped(idx,left,win0,sampling_rate,SHIFT,win1,template,con
 	half = int((E-B)/2)
 	continuous = continuous[:,start_continuous+B:start_continuous+E]
 	nC,nT = torch_normalize_by_max(continuous),torch_normalize_by_max(template)
-	for i,con in enumerate(nC):
-		plt.plot(np.arange(E-B)/sampling_rate+b,con.cpu()+i*2,color='gray',lw=1)
-	for i,tem in enumerate(nT):
-		plt.plot((np.arange(win)+int(SHIFT[i])+offset)/sampling_rate-win0,tem.cpu()+i*2,color='k',lw=.5)
-	for i in range(len(SHIFT)):
-		plt.text(max(min(int(SHIFT[i])/sampling_rate+win1,e),b),i*2,'%.2f'%CC[i,idx-left+SHIFT[i]],color=('r' if MASK_ZERO[i,idx-left+SHIFT[i]]==False else 'b'))
-	if len(SHIFT)<=36:
-		for i in range(len(SHIFT)):plt.text(b,i*2,channels[i][0],color='k',ha='right')
+	for k,i in enumerate(I):plt.plot(np.arange(E-B)/sampling_rate+b,nC[i].cpu()+k*2,color='gray',lw=1)
+	for k,i in enumerate(I):plt.plot((np.arange(win)+int(SHIFT[i])+offset)/sampling_rate-win0,nT[i].cpu()+k*2,color='k',lw=.5)
+	for k,i in enumerate(I):plt.text(max(min(int(SHIFT[i])/sampling_rate+win1,e),b),k*2,'%.2f'%CC[i,idx-left+SHIFT[i]],color=('r' if MASK_ZERO[i,idx-left+SHIFT[i]]==False else 'b'))
+	if nchan<=36:
+		for k,i in enumerate(I):plt.text(b,k*2,channels[i][0],color='k',ha='right')
 	cc = stack[idx-half:idx+half]
 	cc_range = torch.max(cc)-torch.min(cc)
 	cc_modified = (cc-torch.min(cc))/cc_range*scale
 	cc_peak = (cc[half]-torch.min(cc))/cc_range*scale
-	plt.scatter(x=[b+half/sampling_rate],y=[cc_peak+2*i+1],color='r')
-	plt.plot(np.arange(2*half)/sampling_rate+b,cc_modified+i*2+1,color='gray',lw=.5)
-	plt.text(b,i*2+1+scale/2,'Stack CC',color='k')
+	plt.scatter(x=[b+half/sampling_rate],y=[cc_peak+2*(nchan-1)+1],color='r')
+	plt.plot(np.arange(2*half)/sampling_rate+b,cc_modified+(nchan-1)*2+1,color='gray',lw=.5)
+	plt.text(b,(nchan-1)*2+1+scale/2,'Stack CC',color='k')
 	plt.yticks([])
-	plt.xlabel('Seconds since %s'%str(info['ot']))
+	plt.xlabel('Seconds since %s'%str(ot))
 	plt.title('%d MAD;%d local MAD;%.2f CC\n(Template %d: %s)'%(peak_mad,local_mad,stack[idx],evloc['evid'],str(evloc['ot'])))
 	plt.xlim(b,e)
-	plt.ylim(-1,i*2+1+scale+.1)
-	plt.tight_layout()
+	plt.ylim(-1,(nchan-1)*2+1+scale+.1)
 	for axis in ['right','left','top']:mpl.rcParams['axes.spines.%s'%axis] = False
-	plt.savefig(os.path.join(fdate,'%d_%s.pdf'%(evloc['evid'],str(info['ot']))))
+	plt.tight_layout()
+	plt.savefig(os.path.join(fdate,'%d_%s.pdf'%(evloc['evid'],str(ot))))
 	plt.close()
 
 def calc_local_mad(x,i,halfwin):
@@ -444,3 +414,171 @@ def stack_all_nodes_of_CC_and_calculate_MAD(x,mask,shifts,weight,reweight,cc_thr
 		MASK[node,-(rights[node]-lefts[node]):] = 0
 		MAD[node,:-(rights[node]-lefts[node])] = calc_MAD_times(stack[:-(rights[node]-lefts[node])])
 	return STACK,MAD,N,MASK,lefts
+
+class realtime_deduplicate_in_4D_grid():
+	def __init__(self,nx,ny,nz,dx,dy,dz,nt):
+		self.ctlg = {}
+		self.dx = dx
+		self.dy = dy
+		self.dz = dz
+		self.xrange = np.arange(-nx,nx+1)
+		self.yrange = np.arange(-ny,ny+1)
+		self.zrange = np.arange(-nz,nz+1)
+		self.trange = np.arange(-nt,nt+1)
+	def add_event2ctlg(self,i,j,k,l,mad,info):
+		if i in self.ctlg:
+			if j in self.ctlg[i]:
+				if k in self.ctlg[i][j]:
+					self.ctlg[i][j][k][l] = {'mad':mad,'info':info}
+				else:
+					self.ctlg[i][j][k] = {}
+					self.ctlg[i][j][k][l] = {'mad':mad,'info':info}
+			else:
+				self.ctlg[i][j] = {}
+				self.ctlg[i][j][k] = {}
+				self.ctlg[i][j][k][l] = {'mad':mad,'info':info}
+		else:
+			self.ctlg[i] = {}
+			self.ctlg[i][j] = {}
+			self.ctlg[i][j][k] = {}
+			self.ctlg[i][j][k][l] = {'mad':mad,'info':info}
+	def delete_event_from_ctlg(self,X,Y,Z,T):
+		for x,y,z,t in zip(X,Y,Z,T):del self.ctlg[x][y][z][t]
+	def search_neighbor_and_return_the_maximal_mad(self,i,j,k,l):
+		mad,X,Y,Z,T = [],[],[],[],[]
+		xrange = self.xrange+i
+		yrange = self.yrange+j
+		zrange = self.zrange+k
+		trange = self.trange+l
+		for x in xrange:
+			if x not in self.ctlg:continue
+			for y in yrange:
+				if y not in self.ctlg[x]:continue
+				for z in zrange:
+					if z not in self.ctlg[x][y]:continue
+					for t in trange:
+						if t not in self.ctlg[x][y][z]:continue
+						ev = self.ctlg[x][y][z][t]
+						if 'mad' in ev:
+							mad.append(ev['mad'])
+							X.append(x)
+							Y.append(y)
+							Z.append(z)
+							T.append(t)
+		return mad,X,Y,Z,T
+	def run(self,i,j,k,l,mad,info):
+		i,j,k,l = int(i.item()/self.dx),int(j.item()/self.dy),int(k.item()/self.dz),l.item()
+		flag = 1
+		if len(self.ctlg)==0:
+			self.add_event2ctlg(i,j,k,l,mad,info)
+		else:
+			mads,X,Y,Z,T = self.search_neighbor_and_return_the_maximal_mad(i,j,k,l)
+			if len(mads)==0:
+				self.add_event2ctlg(i,j,k,l,mad,info)
+			elif max(mads)<=mad:
+				self.delete_event_from_ctlg(X,Y,Z,T)
+				self.add_event2ctlg(i,j,k,l,mad,info)
+			else:
+				flag = 0
+		return flag
+
+def detect_peaks_on_all_nodes(STACK,MAD,N,MASK,args):
+	peak_distance = int(args['too_close_detections_to_remain']*args['sampling_rate'])
+	time_idx,grid_idx = [],[]
+	LOCAL_MAD = []
+	for j,(stack,mad,n_high_cc_channels,mask) in enumerate(zip(STACK,MAD,N,MASK)):
+		peaks,property = find_peaks(mad.cpu(),height=args['mad_threshold'],distance=peak_distance)
+		peak_heights = property['peak_heights']
+		for i in np.argsort(peak_heights)[::-1]:
+			idx = peaks[i]
+			if n_high_cc_channels[idx]<args['number_high_cc_channels'] or mask[idx]==0:continue
+			local_mad = calc_local_mad(stack,idx,int(args['halfwin_for_local_mad']*args['sampling_rate']))
+			if local_mad<args['local_mad_threshold']:continue
+			time_idx.append(idx)
+			grid_idx.append(j)
+			LOCAL_MAD.append(local_mad)
+	return time_idx,grid_idx,LOCAL_MAD
+
+def deduplicate_in_space(t,g,c,l):
+	pseudo_c = -torch.ones_like(c)
+	pseudo_l = torch.zeros_like(c)
+	for i,(tt,gg) in enumerate(zip(t,g)):
+		pseudo_c[gg,tt] = c[gg,tt]
+		pseudo_l[gg,tt] = l[i]
+	T = torch.where(torch.sum(pseudo_c>-1,dim=0)>0)[0]
+	G = torch.argmax(pseudo_c[:,T],dim=0)
+	return T,G,pseudo_l[G,T],c[G,T]
+
+def deduplicate_in_time(t,c,distance):
+	class CloseDetectionRemover():
+		def __init__(self,distance):
+			self.positions = []
+			self.position_properties = []
+			self.distance = distance
+		def add_member(self,position,prop):
+			self.positions.append(position)
+			self.position_properties.append(prop)
+		def find_neighbor(self,position):
+			for i in self.positions:
+				if abs(i-position)<self.distance:return 1
+			return 0
+	R = CloseDetectionRemover(distance)
+	arg = torch.argsort(c,descending=True)
+	for k in arg:
+		if not R.find_neighbor(t[k]):R.add_member(t[k],k)
+	return R.position_properties
+
+def write_catalog(IT,time_idx,grid_idx,local_MADs,folder,lefts,evloc,grids,MADs,stack,N,shifts,template,continuous,MASK_ZERO,channels,CC,dists,args):
+	date = os.path.basename(folder)
+	candidate_t = UTCDateTime(date)
+	fdate_detection = os.path.join(args['detection_folder'],date)
+	fname = os.path.join(fdate_detection,'raw_ctlg.txt')
+	header = 'ot template_id lon lat dep Times_of_MAD Times_of_local_MAD CC n_high_cc_channels\n'
+	if not os.path.exists(fdate_detection):os.makedirs(fdate_detection)
+	if not os.path.exists(fname):
+		f=open(fname,'w');f.write(header)
+	else:f = open(fname,'a')
+	for it in IT:
+		ti,gi,local_MAD = time_idx[it],grid_idx[it],local_MADs[it]
+		detect_ot = candidate_t+float(ti-lefts[gi])/args['sampling_rate']+args['win0']
+		evlo = evloc['evlo']+grids[gi][0]
+		evla = evloc['evla']+grids[gi][1]
+		evdp = evloc['evdp']+grids[gi][2]
+		mad = MADs[gi,ti]
+		stack_CC = stack[gi,ti]
+		n_high_CC_channels = N[gi,ti]
+		line = '%s %d %f %f %f %f %f %f %.2f\n'%(detect_ot,evloc['evid'],evlo,evla,evdp,mad,local_MAD,stack_CC,n_high_CC_channels)
+		f.write(line)
+		if args['plot']:
+			fdate_log = os.path.join(args['log'],date)
+			if not os.path.exists(fdate_log):os.makedirs(fdate_log)
+			plot_detection_overlaped(ti,lefts[gi],args['win0'],args['sampling_rate'],shifts[gi],
+				args['win1'],template,continuous,MASK_ZERO,channels,CC,stack[gi],
+				detect_ot,mad,local_MAD,evloc,dists,fdate_log,scale=6)
+			print(line)
+	f.close()
+
+#def detect_events_on_all_nodes(CC,STACK,MAD,N,MASK_ZERO,MASK,LEFTS,SHIFTS,template,continuous,channels,ded,grids,folder,evloc,args):
+#	mad_threshold,sampling_rate,win0,win1 = args['mad_threshold'],args['sampling_rate'],args['win0'],args['win1']
+#	win = int((win0+win1)*sampling_rate)
+#	date = os.path.basename(folder)
+#	fdate = os.path.join(args['log'],date)
+#	if not os.path.exists(fdate):os.makedirs(fdate)
+#	candidate_t = UTCDateTime(date)
+#	peak_distance = int(args['too_close_detections_to_remain']*args['sampling_rate'])
+#	for stack,mad,n_high_cc_channels,left,grid,mask,SHIFT in zip(STACK,MAD,N,LEFTS,grids,MASK,SHIFTS):
+#		peaks,_ = find_peaks(mad.cpu(),height=mad_threshold,distance=peak_distance)
+#		for idx in peaks:
+#			if n_high_cc_channels[idx]<args['number_high_cc_channels'] or mask[idx]==0:continue
+#			local_mad = calc_local_mad(stack,idx,int(args['halfwin_for_local_mad']*args['sampling_rate']))
+##			print(stack.max(),local_mad)
+#			if local_mad<args['local_mad_threshold']:continue
+#			peak_mad = mad[idx].cpu()
+#			detect_ot = candidate_t+float(idx-left)/sampling_rate+win0
+#			loc = {'evlo':evloc['evlo']+grid[0],'evla':evloc['evla']+grid[1],'evdp':evloc['evdp']+grid[2]}
+#			info = {'ot':detect_ot,'evid':evloc['evid'],'evlo':loc['evlo'],'evla':loc['evla'],'evdp':loc['evdp'],'mad':mad[idx],'cc':stack[idx],'n_high_cc_channels':n_high_cc_channels[idx],'local_mad':local_mad}
+#			flag = ded.run(grid[0],grid[1],grid[2],idx-left+int(win0*sampling_rate),peak_mad,info)
+#			if flag:
+#				print(grid,info)
+#				if args['plot']:plot_detection_overlaped(idx,left,win0,sampling_rate,SHIFT,win1,
+#					template,continuous,win,MASK_ZERO,channels,CC,stack,info,peak_mad,local_mad,evloc,fdate)
