@@ -1,0 +1,2 @@
+local_mad_threshold: 9
+peakedness_cc_threshold: 1.9
